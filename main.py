@@ -5,10 +5,37 @@ import logging
 
 pluginManagerUtils = Utilities(None)
 Initialized = False
-Enabled=False
+medalsEnabled=False
 medalElementID = "protonDBMedalID"
-cachePath = os.path.abspath( __file__ )
+configPath = "/home/deck/Documents/protonDBPluginConfig.cfg"
 
+
+def loadConfig():
+    global medalsEnabled
+    if os.access(configPath, os.R_OK):
+        try:
+            file = open(configPath,mode='r')
+            configJson = json.loads(file.read())
+            medalsEnabled = configJson["medalsEnabled"]
+            log(f"Medals Enabled Loaded as {medalsEnabled}")
+        except:
+            medalsEnabled = False
+    else:
+        medalsEnabled = False
+
+def saveConfig():
+    global medalsEnabled
+    file = open(configPath,"w")
+    try:
+        configJson = {}
+        configJson["medalsEnabled"] = medalsEnabled
+
+        configString = json.dumps(configJson)
+        log(f"Medals Enabled Saved as {configString}")
+        file.write(configString)
+        file.close()
+    except:
+        medalsEnabled = False
 
 def log(text : str):
     pass
@@ -30,9 +57,13 @@ class Plugin:
     }
 
     async def areMedalsEnabled(self):
-        global Enabled
-        Enabled = (not Enabled)
-        return Enabled
+        global medalsEnabled
+        return medalsEnabled
+    
+    async def setMedalsEnabled(self, enableMedals):
+        global medalsEnabled
+        medalsEnabled = enableMedals
+        saveConfig()
     
     async def gameNeedsButton(self):
 
@@ -187,6 +218,7 @@ class Plugin:
 
     # Asyncio-compatible long-running code, executed in a task when the plugin is loaded
     async def _main(self):
+        global medalsEnabled
         badgeInjected = False
 
         getAppIDJS =  f"""
@@ -211,7 +243,7 @@ class Plugin:
             while True:
                 global Initialized
                 if Initialized:
-                    try:
+                    if medalsEnabled:
                         try:
                             res = False
                             log("Injecting App Id JS")
@@ -242,15 +274,16 @@ class Plugin:
                                 badgeInjected = False
                         except Exception as e:
                             log("Failed: " + str(e))
-
-                    except:
-                        log("SP Tab Not Available")
+                    else:
+                        log("Medals Disabled")
                 else:
                     try:
                         os.remove("/tmp/log.txt")
                     except:
                         pass
                     Initialized = True
+
+                    loadConfig()
                     log("Initialized Main")
                 log("Sleeping 2")
                 await asyncio.sleep(2)
