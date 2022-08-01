@@ -22,7 +22,7 @@
   "bugs": {
     "url": "https://github.com/joamjoamjoam/ProtonDBGameBadge/issues"
   },
-  "homepage": "https://github.com/joamjoamjoam/ProtonDBGameBadge/issues#readme",
+  "homepage": "https://github.com/joamjoamjoam/ProtonDBGameBadge#readme",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^21.1.0",
     "@rollup/plugin-json": "^4.1.0",
