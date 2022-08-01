@@ -1,9 +1,9 @@
 {
   "name": "ProtonDB Medals",
   "author": "Trent Callan",
-  "flags": ["debug"],
+  "flags": [],
   "publish": {
-    "tags": ["debug"],
+    "tags": ["ProtonDB"],
     "description": "Add Proton DB Medals to each Game Screen.",
     "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/PluginLoader"
   }
