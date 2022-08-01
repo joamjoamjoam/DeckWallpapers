@@ -78,11 +78,11 @@ class Plugin:
                     capsule = capsuleList[0];
                     protonDBMedalButton = capsule.querySelector("#{medalElementID}");
                     if(protonDBMedalButton == null) {{
-                        console.log("Game Needs Button");
+                        //console.log("Game Needs Button");
                         rv = true;
                     }}
                     else {{
-                        console.log("Button Already Existed");
+                        //console.log("Button Already Existed");
                         rv = false
                     }}
                 }}
@@ -150,10 +150,10 @@ class Plugin:
                         capsuleList = document.querySelectorAll("[class^=sharedappdetailsheader_TopCapsule]");
                         if(capsuleList){{
                             capsule = capsuleList[0];
-                            console.log("Found Capsule Injecting Link");
+                            //console.log("Found Capsule Injecting Link");
                             protonDBMedalButton = capsule.querySelector("#{medalElementID}");
                             if(protonDBMedalButton == null) {{
-                                console.log("Adding Button");
+                                //console.log("Adding Button");
                                 var button = document.createElement("a");
                                 button.id = "{medalElementID}";
                                 button.href = 'https://www.protondb.com/app/{appID}';
@@ -170,7 +170,7 @@ class Plugin:
                                 button.style.textDecoration = "none";
                                 button.style.borderRadius = "4";
                                 
-                                console.log("Adding Button Image");
+                                //console.log("Adding Button Image");
                                 // Add Image to Button
                                 var img = document.createElement("img");
                                 img.src = 'https://www.protondb.com/sites/protondb/images/site-logo.svg';
@@ -178,19 +178,19 @@ class Plugin:
                                 img.style.marginRight = "4px";
                                 button.appendChild(img);
 
-                                console.log("Adding Button text");
+                                //console.log("Adding Button text");
                                 // Add Image Text
                                 var spanText = document.createElement("span");
                                 spanText.textContent = "{tier}";
                                 button.appendChild(spanText);
 
                                 // add the button to the div
-                                console.log("Adding Button to capsule");
+                                //console.log("Adding Button to capsule");
                                 capsule.appendChild(button);
                                 buttonInjected = true;
                             }}
                             else {{
-                                console.log("Button Already Existed");
+                                //console.log("Button Already Existed");
                             }}
                         }}
 
@@ -224,15 +224,15 @@ class Plugin:
         getAppIDJS =  f"""
             (function() {{
                 appID = "0";
-                console.log('Examining URL: ' + window.location.href);
+                //console.log('Examining URL: ' + window.location.href);
                 appIdRegex = new RegExp('(?<=https:\/\/steamloopback\.host\/routes\/library\/app\/)([0-9]+)');
                 matches =  window.location.href.match(appIdRegex);
                 if(matches){{
                     appID = matches[0];
-                    console.log('Regex ID Matched: ' + appID);      
+                    //console.log('Regex ID Matched: ' + appID);      
                 }}
                 else{{
-                    console.log('no Matches found');
+                    //console.log('no Matches found');
                 }}
                 return appID;
             }})()
