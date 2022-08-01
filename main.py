@@ -1,5 +1,5 @@
 from utilities import Utilities
-import time, asyncio, os, json
+import time, asyncio, os, json, aiohttp
 from injector import inject_to_tab, get_tab, tab_has_element, get_tabs
 import logging
 
@@ -7,12 +7,15 @@ pluginManagerUtils = Utilities(None)
 Initialized = False
 Enabled=False
 medalElementID = "protonDBMedalID"
+cachePath = os.path.abspath( __file__ )
 
 
 def log(text : str):
-    f = open("/tmp/log.txt", "a")
-    f.write(text + "\n")
-    f.close()
+    pass
+    #f = open("/tmp/log.txt", "a")
+    #f.write(text + "\n")
+    #f.close()
+
 
 class Plugin:
 
@@ -22,45 +25,85 @@ class Plugin:
         "BRONZE" : "goldenrod",
         "SILVER" : "silver",
         "GOLD" : "gold",
-        "PLATINUM" : "LightGray"
+        "PLATINUM" : "LightGray",
+        "NONE" : "black"
     }
 
     async def areMedalsEnabled(self):
         global Enabled
         Enabled = (not Enabled)
         return Enabled
+    
+    async def gameNeedsButton(self):
 
-    def generateAddMedalJS(self, appID):
+        rv = False
+
+        js = f"""
+            (function() {{
+                rv = false;
+                // Inject Button Link
+                capsuleList = document.querySelectorAll("[class^=sharedappdetailsheader_TopCapsule]");
+                if(capsuleList){{
+                    capsule = capsuleList[0];
+                    protonDBMedalButton = capsule.querySelector("#{medalElementID}");
+                    if(protonDBMedalButton == null) {{
+                        console.log("Game Needs Button");
+                        rv = true;
+                    }}
+                    else {{
+                        console.log("Button Already Existed");
+                        rv = false
+                    }}
+                }}
+
+                return rv;
+            }})()
+            """
+        
+        value = await inject_to_tab("SP", js, False)
+        log(f"gameNeedsButton Injection Result: {value}")
+
+        try:
+            rv = value["result"]["result"]["value"]
+        except:
+            rv = False
+
+
+        return rv
+
+
+    async def generateAddMedalJS(self, appID):
         
         # Get Tier from ProtonDB or local Cache (  pending = '#6a6a6a', borked = '#ff0000', bronze = '#cd7f32', silver = '#a6a6a6', gold = '#cfb53b', platinum = '#b4c7dc'
-        tier = "GOLD"
-        tierBgColor = "dimgrey"
+        tier = "NONE"
+        tierBgColor = "black"
         tierFgColor = "white"
         protonDBAPIURI = f"https://www.protondb.com/api/v1/reports/summaries/{appID}.json"
+        js = ""
+        rv = False
 
-        # try:
-        #     log("Sending request to PDB")
-        #     response = pluginManagerUtils.http_request(self, "GET", protonDBAPIURI,  NULL)
-        #     log("Done Sending request to PDB")
-
-        #     if response:
-        #         json = response["body"]
-        #         log(json)
-        #         if response["status"] == 200:
-        #             #process JSON 
-        #             pass
-                
-        #     else:
-        #         log("Cant Access protonDB")
-        # except Exception as exc:
-        #     log("Error Sending request to PDB: " + str(exc))
-        #     tier = "NONE"
-
-
+        try:
+            log("Cant Access protonDB")
+            timeout = aiohttp.ClientTimeout(total=3)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(protonDBAPIURI, timeout=timeout, ssl=False) as resp:
+                    responseBody = await resp.text()
+                    log(f"Retrieved data({resp.status}): {responseBody}")
+                    if resp.status == 200:
+                        responseBody = json.loads(responseBody)
+                        tier = str(responseBody["tier"]).upper()
+                    else:
+                        log(f"Proton DB Access Error ({resp.status})")
+                    
+                    
+        except Exception as exc:
+            tier = "NONE"
+            log(f"Error retrieving PDB Info: " + str(exc))
+            
         tierBgColor = self.protonDBTierColors[tier]
-
+        log(f"Genrating medal for ID: {appID}, Tier: {tier}, Color: {tierBgColor}")
         if tier != "NONE":
-            js = ""
+            
             if int(appID) > 0:
                 #Generate JavaScript to add medal to Page.
                 js = f"""
@@ -72,60 +115,73 @@ class Plugin:
                             capsule = capsuleList[0];
                             console.log("Found Capsule Injecting Link");
                             protonDBMedalButton = capsule.querySelector("#{medalElementID}");
+                            if(protonDBMedalButton == null) {{
+                                console.log("Adding Button");
+                                var button = document.createElement("a");
+                                button.id = "{medalElementID}";
+                                button.href = 'https://www.protondb.com/app/{appID}';
+
+                                button.style.position = "absolute";
+                                button.style.top = "24px";
+                                button.style.left = "24px";
+                                button.style.display = "flex";
+                                button.style.alignItems = "center";
+                                button.style.padding = "4px 8px";
+                                button.style.backgroundColor = "{tierBgColor}";
+                                button.style.color = "rgba(0, 0, 0, 50%)";
+                                button.style.fontSize = "20px";
+                                button.style.textDecoration = "none";
+                                button.style.borderRadius = "4";
                                 
-                            console.log("Adding Button");
-                            var button = document.createElement("a");
-                            button.id = "{medalElementID}";
-                            button.href = 'https://www.protondb.com/app/{appID}';
+                                console.log("Adding Button Image");
+                                // Add Image to Button
+                                var img = document.createElement("img");
+                                img.src = 'https://www.protondb.com/sites/protondb/images/site-logo.svg';
+                                img.style.width = "20px";
+                                img.style.marginRight = "4px";
+                                button.appendChild(img);
 
-                            button.style.position = "absolute";
-                            button.style.top = "24px";
-                            button.style.left = "24px";
-                            button.style.display = "flex";
-                            button.style.alignItems = "center";
-                            button.style.padding = "4px 8px";
-                            button.style.backgroundColor = "{tierBgColor}";
-                            button.style.color = "rgba(0, 0, 0, 50%)";
-                            button.style.fontSize = "20px";
-                            button.style.textDecoration = "none";
-                            button.style.borderRadius = "4";
-                            
-                            console.log("Adding Button Image");
-                            // Add Image to Button
-                            var img = document.createElement("img");
-                            img.src = 'https://www.protondb.com/sites/protondb/images/site-logo.svg';
-                            img.style.width = "20px";
-                            img.style.marginRight = "4px";
-                            button.appendChild(img);
+                                console.log("Adding Button text");
+                                // Add Image Text
+                                var spanText = document.createElement("span");
+                                spanText.textContent = "{tier}";
+                                button.appendChild(spanText);
 
-                            console.log("Adding Button text");
-                            // Add Image Text
-                            var spanText = document.createElement("span");
-                            spanText.textContent = "{tier}";
-                            button.appendChild(spanText);
-
-                            // add the button to the div
-                            console.log("Adding Button to capsule");
-                            capsule.appendChild(button);
-                            buttonInjected = true;
+                                // add the button to the div
+                                console.log("Adding Button to capsule");
+                                capsule.appendChild(button);
+                                buttonInjected = true;
+                            }}
+                            else {{
+                                console.log("Button Already Existed");
+                            }}
                         }}
 
                         return buttonInjected;
                     }})()
                     """
+
+                value = await inject_to_tab("SP", js, False)
+                log(f"value: {value}")
+                if value:
+                    res = value["result"]["result"]["value"]
+                    log(f"Result: {res}")
+                    rv = res
+                else:
+                    log("Result: FALSE")
             else:
                 js = ""
         else:
             log("Error Retrieving PDB info.")
 
             
-        return js
+        return rv
 
 
 
     # Asyncio-compatible long-running code, executed in a task when the plugin is loaded
     async def _main(self):
-        #badgeInjected = False
+        badgeInjected = False
 
         getAppIDJS =  f"""
             (function() {{
@@ -150,7 +206,6 @@ class Plugin:
                 global Initialized
                 if Initialized:
                     try:
-                        tabs = await get_tab("SP")
                         try:
                             res = False
                             log("Injecting App Id JS")
@@ -158,29 +213,27 @@ class Plugin:
                             log(f"value: {value}")
                             if value:
                                 appID = value["result"]["result"]["value"]
+                                if int(appID) > 0 and int(appID) < int('0x02000000', 16): # handle non steam IDs
+                                    if not badgeInjected:
+                                        addButton = await self.gameNeedsButton(self)
+                                        if addButton:
+                                            log(f"Generating Button for game ({appID})")
+                                            rv = await self.generateAddMedalJS(self, appID)
 
-                                if int(appID) > 0:
-                                    log(f"Injecting App Medal ({appID}) JS")
-                                    appMedalJS = self.generateAddMedalJS(self, appID)
-                                    log(f"medalJS: {appMedalJS}")
-                                    value = await inject_to_tab("SP", appMedalJS, False)
-                                    log(f"value: {value}")
-                                    if value:
-                                        res = value["result"]["result"]["value"]
-                                        log(f"Result: {res}")
-                                    else:
-                                        log("Result: FALSE")
+                                            if rv:
+                                                log("Button Was Added. Setting Needs Generate Button to False")
+                                                badgeInjected = True
+                                            else:
+                                                log("Error Adding Button.")
+                                        else:
+                                            log("Button Was not Needed.")
+                                            badgeInjected = True
                                 else:
-                                    log("Couldnt find an App ID in URL")
+                                    log("No AppID or not Game Screen or is a Non-Steam Game")
+                                    badgeInjected = False
                             else:
-                                log("Couldnt find an App ID")
-
-
-
-
-                            log(str(value))
-                            
-                            log("Was Successful")
+                                log("Couldnt find an App ID. Setting Generate Button to True")
+                                badgeInjected = False
                         except Exception as e:
                             log("Failed: " + str(e))
 
