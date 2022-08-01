@@ -77,7 +77,7 @@ class Plugin:
         # Get Tier from ProtonDB or local Cache (  pending = '#6a6a6a', borked = '#ff0000', bronze = '#cd7f32', silver = '#a6a6a6', gold = '#cfb53b', platinum = '#b4c7dc'
         tier = "NONE"
         tierBgColor = "black"
-        tierFgColor = "white"
+        tierFgColor = "0, 0, 0"
         protonDBAPIURI = f"https://www.protondb.com/api/v1/reports/summaries/{appID}.json"
         js = ""
         rv = False
@@ -92,6 +92,9 @@ class Plugin:
                     if resp.status == 200:
                         responseBody = json.loads(responseBody)
                         tier = str(responseBody["tier"]).upper()
+                    elif resp.status == 404:
+                        # Default to PENDING if the request is otherwise good.
+                        tier = "PENDING"
                     else:
                         log(f"Proton DB Access Error ({resp.status})")
                     
@@ -101,7 +104,10 @@ class Plugin:
             log(f"Error retrieving PDB Info: " + str(exc))
             
         tierBgColor = self.protonDBTierColors[tier]
-        log(f"Genrating medal for ID: {appID}, Tier: {tier}, Color: {tierBgColor}")
+        if tier == "PENDING":
+            tierFgColor = "255, 255, 255"
+        
+        log(f"Genrating medal for ID: {appID}, Tier: {tier}, Color: {tierBgColor}, FG Color RGB: {tierFgColor}")
         if tier != "NONE":
             
             if int(appID) > 0:
@@ -127,8 +133,8 @@ class Plugin:
                                 button.style.display = "flex";
                                 button.style.alignItems = "center";
                                 button.style.padding = "4px 8px";
-                                button.style.backgroundColor = "{tierBgColor}";
-                                button.style.color = "rgba(0, 0, 0, 50%)";
+                                button.style.backgroundColor =  "{tierBgColor}";
+                                button.style.color = "rgba({tierFgColor}, 50%)";
                                 button.style.fontSize = "20px";
                                 button.style.textDecoration = "none";
                                 button.style.borderRadius = "4";
