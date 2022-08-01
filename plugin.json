@@ -5,6 +5,6 @@
   "publish": {
     "tags": ["ProtonDB"],
     "description": "Add Proton DB Medals to each Game Screen.",
-    "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/PluginLoader"
+    "image": "https://raw.githubusercontent.com/joamjoamjoam/ProtonDBGameBadge/main/images/crosscode.jpg"
   }
 }
