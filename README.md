@@ -8,3 +8,5 @@ Note: This is a plugin for the Decky Loader. You must have it installed to use t
 
 # Examples
 
+![](https://github.com/joamjoamjoam/ProtonDBGameBadge/blob/main/images/crosscode.jpg?raw=true)
+![](https://github.com/joamjoamjoam/ProtonDBGameBadge/blob/main/images/knight.jpg?raw=true)
