@@ -34,6 +34,10 @@ export function setMedalsEnabled(enableMedals: boolean): Promise<any> {
     return server!.callPluginMethod("setMedalsEnabled", { "enableMedals": enableMedals});
 }
 
+// Get ProtonDB Tier
+export function getProtonDBTierForAppId(appId: string): Promise<any> {
+    return server!.callPluginMethod("getProtonDBTierForAppId", {"appID" : appId});
+}
 // Python functions
 export function getMedalsEnabled(): Promise<any> {
     return server!.callPluginMethod("areMedalsEnabled", {});

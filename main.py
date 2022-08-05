@@ -23,6 +23,7 @@ def loadConfig():
     else:
         medalsEnabled = False
 
+    
 def saveConfig():
     global medalsEnabled
     file = open(configPath,"w")
@@ -64,6 +65,40 @@ class Plugin:
         global medalsEnabled
         medalsEnabled = enableMedals
         saveConfig()
+    
+
+    async def getProtonDBTierForAppId(self, appID):
+        
+        # Get Tier from ProtonDB or local Cache (  pending = '#6a6a6a', borked = '#ff0000', bronze = '#cd7f32', silver = '#a6a6a6', gold = '#cfb53b', platinum = '#b4c7dc'
+        tier = "NONE"
+        protonDBAPIURI = f"https://www.protondb.com/api/v1/reports/summaries/{appID}.json"
+
+        log("Getting Tier for appid " + appID + ": " + protonDBAPIURI)
+        try:
+            log("Cant Access protonDB")
+            timeout = aiohttp.ClientTimeout(total=3)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(protonDBAPIURI, timeout=timeout, ssl=False) as resp:
+                    responseBody = await resp.text()
+                    log(f"Retrieved data({resp.status}): {responseBody}")
+                    if resp.status == 200:
+                        responseBody = json.loads(responseBody)
+                        tier = str(responseBody["tier"]).upper()
+                    elif resp.status == 404:
+                        # Default to PENDING if the request is otherwise good.
+                        tier = "PENDING"
+                    else:
+                        log(f"Proton DB Access Error ({resp.status})")
+                    
+                    
+        except Exception as exc:
+            tier = "NONE"
+            log(f"Error retrieving PDB Info: " + str(exc))
+        
+        log(f"Genrating medal for ID: {appID}, Tier: {tier}")
+
+        return tier
+
     
     async def gameNeedsButton(self):
 
@@ -243,7 +278,7 @@ class Plugin:
             while True:
                 global Initialized
                 if Initialized:
-                    if medalsEnabled:
+                    if medalsEnabled and False:
                         try:
                             res = False
                             log("Injecting App Id JS")
