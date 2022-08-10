@@ -60,6 +60,30 @@ export default definePlugin((serverApi: ServerAPI) => {
       console.log("Got Tier for AppId " + appId + ": " + tier);
       // Trent Add Back Styles
 
+      var color = "lightgray"
+
+      if(tier == "BORKED"){
+        color = "red"
+      }
+      else if(tier == "BRONZE"){
+        color = "goldenrod"
+      }
+      else if(tier == "SILVER"){
+        color = "silver"
+      }
+      else if(tier == "GOLD"){
+        color = "gold"
+      }
+      else if(tier == "PLATINUM"){
+        color = "LightGray"
+      }
+      else if(tier == "PENDING"){
+        color = "#363135"
+      }
+      else{
+        color = "black"
+      }
+
       const linkStyle : React.CSSProperties = 
       {
         position: "absolute",
@@ -68,10 +92,11 @@ export default definePlugin((serverApi: ServerAPI) => {
         display: "flex",
         alignItems: "center",
         padding: "4px 8px",
-        backgroundColor: "lightgray",
+        backgroundColor: color,
         color: "white",
         fontSize: "20px",
-        textDecoration: "none"
+        textDecoration: "none",
+        zIndex: "1"
       }
 
       const imgStyle: React.CSSProperties = {
@@ -104,7 +129,7 @@ export default definePlugin((serverApi: ServerAPI) => {
     icon: <FaShip />,
     onDismount() {
       console.log("Dismounting");
-      serverApi.routerHook.removePatch("/library/app/:appid", patch)
+      //serverApi.routerHook.removePatch("/library/app/:appid", patch)
     },
   };
 });
