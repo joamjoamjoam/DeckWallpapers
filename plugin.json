@@ -1,10 +1,10 @@
 {
-  "name": "ProtonDB Medals",
+  "name": "Theme Extensions",
   "author": "Trent Callan",
-  "flags": [],
+  "flags": ["debug"],
   "publish": {
-    "tags": ["ProtonDB"],
-    "description": "Add Proton DB Medals to each Game Screen.",
+    "tags": ["Themes"],
+    "description": "Extends CSS Loader Themes to support extra fetures.",
     "image": "https://raw.githubusercontent.com/joamjoamjoam/ProtonDBGameBadge/main/images/crosscode.jpg"
   }
 }
