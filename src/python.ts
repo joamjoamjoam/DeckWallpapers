@@ -30,11 +30,17 @@ export function setServer(s: ServerAPI) {
     server = s;
 }
 
-export function setMedalsEnabled(enableMedals: boolean): Promise<any> {
-    return server!.callPluginMethod("setMedalsEnabled", { "enableMedals": enableMedals});
+// Python functions
+export function parseExtensionsForThemes(): Promise<any> {
+    return server!.callPluginMethod("parseExtensionsForThemes", {});
 }
 
-// Python functions
-export function getMedalsEnabled(): Promise<any> {
-    return server!.callPluginMethod("areMedalsEnabled", {});
+export function hasCSSLoader(): Promise<any> {
+    console.log(server)
+    return server!.callPluginMethod("isCSSLoaderInstalled", {});
+}
+
+export function broken(): Promise<any> {
+    console.log(server)
+    return server!.callPluginMethod("broken", {});
 }

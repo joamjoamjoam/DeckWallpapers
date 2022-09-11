@@ -1,7 +1,7 @@
 {
-  "name": "ProtonDBMedals",
+  "name": "Wallpapers",
   "version": "0.5.0",
-  "description": "Add a ProtonDB badge to each game screen.",
+  "description": "Add Wallpapers from local files.",
   "scripts": {
     "build": "shx rm -rf dist && rollup -c",
     "watch": "rollup -c -w",
@@ -38,7 +38,7 @@
     "typescript": "^4.7.4"
   },
   "dependencies": {
-    "decky-frontend-lib": "^1.2.4",
+    "decky-frontend-lib": "2.0.0",
     "react-icons": "^4.4.0"
   },
   "pnpm": {

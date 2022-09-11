@@ -1,10 +1,10 @@
 {
-  "name": "ProtonDB Medals",
+  "name": "Wallpapers",
   "author": "Trent Callan",
-  "flags": [],
+  "flags": ["debug"],
   "publish": {
-    "tags": ["ProtonDB"],
-    "description": "Add Proton DB Medals to each Game Screen.",
+    "tags": ["Themes"],
+    "description": "Set Wallpapers from local files.",
     "image": "https://raw.githubusercontent.com/joamjoamjoam/ProtonDBGameBadge/main/images/crosscode.jpg"
   }
 }

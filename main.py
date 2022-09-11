@@ -1,291 +1,280 @@
-from utilities import Utilities
-import time, asyncio, os, json, aiohttp
-from injector import inject_to_tab, get_tab, tab_has_element, get_tabs
+import os, json, shutil, re, base64
+#from injector import inject_to_tab, get_tab, tab_has_element, get_tabs
 import logging
 
-pluginManagerUtils = Utilities(None)
 Initialized = False
-medalsEnabled=False
-medalElementID = "protonDBMedalID"
-configPath = "/home/deck/Documents/protonDBPluginConfig.cfg"
+themeName = "Wallpapers2"
+themeFolder = "/home/deck/homebrew/themes"
+symLinkToHostDir = "/home/deck/.local/share/Steam/steamui/themes_custom"
+themeBaseFolder = f"/home/deck/homebrew/themes/{themeName}"
+imagesFolder = "/home/deck/wallpaperImages"
+cssDir = "generatedCSSFiles"
+b64Dir = "sharedB64Images"
+fallbackCSSDir = "fallbackCSS"
+themeTemplateFileName = "themeTemplate.json"
+autoGenHeader = "/* This File was Auto-Generated Do Not Modify */\n\n"
+cssVariableTemplate = f"{autoGenHeader}:root{{\n\t--<customVarName>: var(--<imageVariableName>, radial-gradient(155.42% 100% at 0% 0%, #151f25 0 0%, #152533 100%));\n}}"
+fallbackCssVariableTemplate = f"{autoGenHeader}:root{{\n\t--<customVarName>: radial-gradient(155.42% 100% at 0% 0%, #151f25 0 0%, #152533 100%) !important;\n}}"
+validExtensions = [".jpg", ".png", ".svg", ".gif", ".jpeg"]
 
+cssFileTypes = { 
+    b64Dir: f"{autoGenHeader}:root{{\n\t--<imageVariableName>: <fileURL> !important;\n}}",
+    fallbackCSSDir: fallbackCssVariableTemplate
+}
 
-def loadConfig():
-    global medalsEnabled
-    if os.access(configPath, os.R_OK):
-        try:
-            file = open(configPath,mode='r')
-            configJson = json.loads(file.read())
-            medalsEnabled = configJson["medalsEnabled"]
-            log(f"Medals Enabled Loaded as {medalsEnabled}")
-        except:
-            medalsEnabled = False
-    else:
-        medalsEnabled = False
-
-def saveConfig():
-    global medalsEnabled
-    file = open(configPath,"w")
-    try:
-        configJson = {}
-        configJson["medalsEnabled"] = medalsEnabled
-
-        configString = json.dumps(configJson)
-        log(f"Medals Enabled Saved as {configString}")
-        file.write(configString)
-        file.close()
-    except:
-        medalsEnabled = False
+imageCount = 0
 
 def log(text : str):
-    pass
-    #f = open("/tmp/log.txt", "a")
-    #f.write(text + "\n")
-    #f.close()
+    try:
+        f = open(f"/home/deck/homebrew/plugins/Wallpapers/log.txt", "a")
+        f.write(text + "\n")
+        f.close()
+    except:
+        pass
+
+#### Helper Functions
+
+def getURLforFile(file):
+
+    fileURL = ""
+
+    file = os.path.basename(file)
+
+    if os.path.exists(symLinkToHostDir):
+        log("Sym Link is here")
+        fileURL = f"url('/themes_custom/{themeName}/images/{file}')"
+    else:
+        # fall back to b64
+        log("Sym Link not here")
+        fileURL = "url('data:image/<imgType>;base64,<b64String>')"
+
+        fileURL = fileURL.replace("<imgType>", getImgTypeTagForFile(file)).replace("<b64String>", getB64ForFile(file))
+
+    return fileURL
+
+def getB64ForFile(file):
+    rv = ""
+    try:
+        if os.path.exists(file):
+            with open(file, "rb") as image_file:
+                raw = base64.b64encode(image_file.read())
+                rv = raw.decode('utf-8')
+    except:
+        pass
+    
+    return rv
+
+def getImgTypeTagForFile(file):
+    rv = "jpeg"
+
+    fileInfo = os.path.splitext(file)
+
+    if len(fileInfo) == 2:
+        fileExt = fileInfo[1].lower()
+
+        if fileExt in validExtensions:
+            if fileExt == ".jpg" or fileExt == ".jpeg":
+                rv = "jpeg"
+            elif fileExt == ".svg":
+                rv = "svg+xml"
+            elif fileExt == ".gif":
+                rv = "gif"
+            elif fileExt == ".png":
+                rv = "png" 
+
+        else:
+            rv = "jpeg"
+
+    return rv
+
+def writeCSSType(type, filePath, varName):
+
+    rv = True
+
+    fileInfo = os.path.splitext(os.path.basename(filePath))
+    try:
+        if not type in cssFileTypes.keys() or len(fileInfo) != 2:
+            raise ValueError("Not a Valid type or image path") 
+        
+        fileName = f"{varName}.css"
+        
+        variableName = "WPRImage" + varName.replace(" ", "")
+
+        if type == b64Dir:
+            f = open(f"{cssDir}/{type}/{fileName}" , "w")
+            tmpStr = cssFileTypes[type].replace("<imageVariableName>", variableName).replace("<fileURL>", getURLforFile(filePath))
+            f.write(tmpStr)
+            f.close()
+        elif type == fallbackCSSDir:
+            f = open(f"{cssDir}/{type}/{fileName}" , "w")
+            tmpStr = cssFileTypes[type].replace("<customVarName>", varName)
+            f.write(tmpStr)
+            f.close()
+        else:
+            f = open(f"{cssDir}/{type}/{fileName}" , "w")
+            f.write(cssFileTypes[type].replace("<imageVariableName>", variableName))
+            f.close()
+    except Exception as e:
+        log(f"Error  writing type {type}: {str(e)}")
+        rv = False
+
+    return rv
+
+
+def copyThemeTemplate(srcDir, destDir):
+    for file in os.listdir(srcDir):
+        trueSrcFilePath = f"{srcDir}/{file}"
+        trueDestFilePath = f"{destDir}/{file}"
+
+
+        if file in ["images"]:
+            # Symbolicly Link images to imageFolder
+            if not os.path.exists(f"{destDir}/images"):
+                os.system(f"ln -s {imagesFolder} {destDir}/images")
+        else:
+            if os.path.isdir(trueSrcFilePath):
+                if os.path.isdir(trueDestFilePath):
+                    shutil.rmtree(trueDestFilePath)
+                
+                shutil.copytree(trueSrcFilePath, trueDestFilePath)  
+            else:
+                shutil.copy2(trueSrcFilePath, trueDestFilePath)
+
+
+def addThemeThemeAtPath(path):
+    if os.path.isdir(path) and os.path.isdir(imagesFolder):
+        os.chdir(path)
+        global imageCount
+         # Copy Template to Folder
+
+        copyThemeTemplate((os.path.dirname(os.path.realpath(__file__)) + "/WallpapersTemplate"), path)
+
+        if os.path.isdir(cssDir):
+            shutil.rmtree(cssDir)
+        
+        jsonTemplate = open(f"{themeTemplateFileName}")
+        themeJson = json.load(jsonTemplate)
+        jsonTemplate.close()
+        # Create Folder Structure
+        os.mkdir(cssDir)
+        os.mkdir(f"{cssDir}/{b64Dir}")
+        os.mkdir(f"{cssDir}/{fallbackCSSDir}")
+
+        for k,v in themeJson["patches"].items():
+            if v["type"] == "dropdown-image":
+                if "css_variable" in v.keys() and re.match(r"[A-Za-z0-9_-]+", v["css_variable"]):
+                    tmpVar = v["css_variable"]
+                    log(tmpVar)
+                    os.mkdir(f'{cssDir}/{tmpVar}')
+                    cssFileTypes[v["css_variable"]] = cssVariableTemplate.replace("<customVarName>", v["css_variable"])
+
+                    if "values" in v.keys():
+                        v["values"]["None"] = {f"{fallbackCSSDir}/{v['css_variable']}.css": ["SP"]}
+                        writeCSSType(fallbackCSSDir, "", v['css_variable'])
+                    if "default" in v.keys() and "None" != v["default"]:
+                        v["default"] = "None"
+
+                else:
+                    raise ValueError(f'Invalid css variable name')
+
+
+
+
+        for root, dirs, files in os.walk(f"{path}/images"):
+            for file in files:
+                fileInfo = os.path.splitext(file)
+                if len(fileInfo) == 2 and ((fileInfo[1].lower()) in validExtensions):
+                    log("Creating CSS files for " + file)
+                    imageImportedSuccessfully = True
+                    imageVarName = ""
+                    imageVarName = imageVarName.join(e for e in fileInfo[0].lower().title() if (e.isalnum() or e.isspace()))
+                    imageVarName = " ".join(imageVarName.split())
+                    
+                    for cssType, cssTemplate in cssFileTypes.items():
+                        if  imageImportedSuccessfully:
+                            if cssType != fallbackCSSDir:
+                                imageImportedSuccessfully = writeCSSType(cssType, os.path.join(root, file), imageVarName)
+                    
+                    if imageImportedSuccessfully:
+                        # Update Theme.json
+                        log("Success")
+                        for k,v in themeJson["patches"].items():
+                            if v["type"] == "dropdown-image":
+                                log(f"Adding {imageVarName} for var {v['css_variable']}")
+                                if "css_variable" in v.keys() and re.match(r"[A-Za-z0-9_-]+", v["css_variable"]):
+                                    themeJson["patches"][k]["values"][imageVarName] = { f"{cssDir}/{b64Dir}/{imageVarName}.css": ["SP"], f'{cssDir}/{v["css_variable"]}/{imageVarName}.css': ["SP"]}
+                                else:
+                                    # No Var replace Normal dropdown Patch
+                                    v["type"] = "dropdown"
+                        imageCount += 1
+
+                        
+                    else:
+                        log("Failed")
+
+        # Sanitize Extended Types
+        for k,v in themeJson["patches"].items():
+            if "css_variable" in v.keys():
+                del v["css_variable"]
+                if "values" in v.keys():
+                    v["values"]["None"] = { }
+            if "type" in v.keys() and v["type"] == "dropdown-image":
+                v["type"] = "dropdown"
+
+
+        f = open(f"{path}/theme.json" , "w")
+        f.write(json.dumps(themeJson, indent=4))
+        f.close()
+    else:
+        log(f"Error Processing Theme at path {path}")
+
+
+def getExtendedThemesList():
+    rv = []
+    root = themeFolder
+
+    for file in os.listdir(root):
+        if os.path.isdir(F"{root}/{file}"):
+            if themeTemplateFileName in os.listdir(f"{root}/{file}"):
+                rv.append(f"{root}/{file}")
+
+    return rv
+
+##################################################################################
+
 
 
 class Plugin:
 
-    protonDBTierColors = {
-        "PENDING" : "#363135",
-        "BORKED" : "red",
-        "BRONZE" : "goldenrod",
-        "SILVER" : "silver",
-        "GOLD" : "gold",
-        "PLATINUM" : "LightGray",
-        "NONE" : "black"
-    }
 
-    async def areMedalsEnabled(self):
-        global medalsEnabled
-        return medalsEnabled
-    
-    async def setMedalsEnabled(self, enableMedals):
-        global medalsEnabled
-        medalsEnabled = enableMedals
-        saveConfig()
-    
-    async def gameNeedsButton(self):
+    async def isCSSLoaderInstalled(self):
+        return os.path.exists("/home/deck/homebrew/themes")
 
-        rv = False
+    async def parseExtensionsForThemes(self):
+        # Handle Updates by backing up images and wiping template (get version from json)
+        log("Parsing theme")
+        if not os.path.exists(imagesFolder):
+            log("Initialized images Folder")
+            os.mkdir(imagesFolder)
 
-        js = f"""
-            (function() {{
-                rv = false;
-                // Inject Button Link
-                capsuleList = document.querySelectorAll("[class^=sharedappdetailsheader_TopCapsule]");
-                if(capsuleList){{
-                    capsule = capsuleList[0];
-                    protonDBMedalButton = capsule.querySelector("#{medalElementID}");
-                    if(protonDBMedalButton == null) {{
-                        //console.log("Game Needs Button");
-                        rv = true;
-                    }}
-                    else {{
-                        //console.log("Button Already Existed");
-                        rv = false
-                    }}
-                }}
-
-                return rv;
-            }})()
-            """
-        
-        value = await inject_to_tab("SP", js, False)
-        log(f"gameNeedsButton Injection Result: {value}")
-
-        try:
-            rv = value["result"]["result"]["value"]
-        except:
-            rv = False
-
-
-        return rv
-
-
-    async def generateAddMedalJS(self, appID):
-        
-        # Get Tier from ProtonDB or local Cache (  pending = '#6a6a6a', borked = '#ff0000', bronze = '#cd7f32', silver = '#a6a6a6', gold = '#cfb53b', platinum = '#b4c7dc'
-        tier = "NONE"
-        tierBgColor = "black"
-        tierFgColor = "0, 0, 0"
-        protonDBAPIURI = f"https://www.protondb.com/api/v1/reports/summaries/{appID}.json"
-        js = ""
-        rv = False
-
-        try:
-            log("Cant Access protonDB")
-            timeout = aiohttp.ClientTimeout(total=3)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(protonDBAPIURI, timeout=timeout, ssl=False) as resp:
-                    responseBody = await resp.text()
-                    log(f"Retrieved data({resp.status}): {responseBody}")
-                    if resp.status == 200:
-                        responseBody = json.loads(responseBody)
-                        tier = str(responseBody["tier"]).upper()
-                    elif resp.status == 404:
-                        # Default to PENDING if the request is otherwise good.
-                        tier = "PENDING"
-                    else:
-                        log(f"Proton DB Access Error ({resp.status})")
-                    
-                    
-        except Exception as exc:
-            tier = "NONE"
-            log(f"Error retrieving PDB Info: " + str(exc))
+        if os.path.isdir(themeFolder):
+            if not os.path.isdir(themeBaseFolder):
+                os.mkdir(themeBaseFolder)
             
-        tierBgColor = self.protonDBTierColors[tier]
-        if tier == "PENDING":
-            tierFgColor = "255, 255, 255"
-        
-        log(f"Genrating medal for ID: {appID}, Tier: {tier}, Color: {tierBgColor}, FG Color RGB: {tierFgColor}")
-        if tier != "NONE":
+            log("Theme Directory")
             
-            if int(appID) > 0:
-                #Generate JavaScript to add medal to Page.
-                js = f"""
-                    (function() {{
-                        buttonInjected = false;
-                        // Inject Button Link
-                        capsuleList = document.querySelectorAll("[class^=sharedappdetailsheader_TopCapsule]");
-                        if(capsuleList){{
-                            capsule = capsuleList[0];
-                            //console.log("Found Capsule Injecting Link");
-                            protonDBMedalButton = capsule.querySelector("#{medalElementID}");
-                            if(protonDBMedalButton == null) {{
-                                //console.log("Adding Button");
-                                var button = document.createElement("a");
-                                button.id = "{medalElementID}";
-                                button.href = 'https://www.protondb.com/app/{appID}';
-
-                                button.style.position = "absolute";
-                                button.style.top = "24px";
-                                button.style.left = "24px";
-                                button.style.display = "flex";
-                                button.style.alignItems = "center";
-                                button.style.padding = "4px 8px";
-                                button.style.backgroundColor =  "{tierBgColor}";
-                                button.style.color = "rgba({tierFgColor}, 50%)";
-                                button.style.fontSize = "20px";
-                                button.style.textDecoration = "none";
-                                button.style.borderRadius = "4";
-                                
-                                //console.log("Adding Button Image");
-                                // Add Image to Button
-                                var img = document.createElement("img");
-                                img.src = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPCEtLSBHZW5lcmF0b3I6IEFkb2JlIElsbHVzdHJhdG9yIDIyLjEuMCwgU1ZHIEV4cG9ydCBQbHVnLUluIC4gU1ZHIFZlcnNpb246IDYuMDAgQnVpbGQgMCkgIC0tPgo8IURPQ1RZUEUgc3ZnIFBVQkxJQyAiLS8vVzNDLy9EVEQgU1ZHIDEuMS8vRU4iICJodHRwOi8vd3d3LnczLm9yZy9HcmFwaGljcy9TVkcvMS4xL0RURC9zdmcxMS5kdGQiPgo8c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzJfMV8iIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IgoJIHZpZXdCb3g9IjAgMCA0OTEgNDkxIiBzdHlsZT0iZW5hYmxlLWJhY2tncm91bmQ6bmV3IDAgMCA0OTEgNDkxOyIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+CjxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+Cgkuc3Qwe2ZpbGw6IzFBMjIzMzt9Cgkuc3Qxe2ZpbGw6I0Y1MDA1Nzt9Cgkuc3Qye2ZpbGw6I0ZGRkZGRjt9Cjwvc3R5bGU+CjwhLS0gPHBhdGggY2xhc3M9InN0MCIgZD0iTTQ1NS4zLDQ5MUgzNS43QzE2LDQ5MSwwLDQ3NSwwLDQ1NS4zVjM1LjdDMCwxNiwxNiwwLDM1LjcsMGg0MTkuN0M0NzUsMCw0OTEsMTYsNDkxLDM1Ljd2NDE5LjcKCUM0OTEsNDc1LDQ3NSw0OTEsNDU1LjMsNDkxeiIvPiAtLT4KPGc+Cgk8cGF0aCBjbGFzcz0ic3QxIiBkPSJNNDcwLjUsMjQ1LjVjMC0yOS44LTM3LjMtNTguMS05NC42LTc1LjZjMTMuMi01OC4zLDcuMy0xMDQuNy0xOC41LTExOS42Yy02LTMuNS0xMi45LTUuMS0yMC41LTUuMXYyMC41CgkJYzQuMiwwLDcuNiwwLjgsMTAuNSwyLjRjMTIuNSw3LjIsMTcuOSwzNC40LDEzLjcsNjkuNGMtMSw4LjYtMi43LDE3LjctNC43LDI3Yy0xOC00LjQtMzcuNi03LjgtNTguMi0xMAoJCWMtMTIuNC0xNy0yNS4yLTMyLjQtMzguMi00NS45YzI5LjktMjcuOCw1OC00Myw3Ny00M1Y0NS4xbDAsMGMtMjUuMiwwLTU4LjIsMTgtOTEuNiw0OS4yYy0zMy40LTMxLTY2LjQtNDguOC05MS42LTQ4Ljh2MjAuNQoJCWMxOSwwLDQ3LjEsMTUuMSw3Nyw0Mi43Yy0xMi44LDEzLjUtMjUuNywyOC44LTM3LjksNDUuOGMtMjAuNywyLjItNDAuNCw1LjYtNTguMywxMC4xYy0yLjEtOS4yLTMuNy0xOC4xLTQuOC0yNi42CgkJYy00LjMtMzUsMS02Mi4zLDEzLjQtNjkuNWMyLjgtMS43LDYuMy0yLjQsMTAuNS0yLjRWNDUuNmwwLDBjLTcuNywwLTE0LjcsMS43LTIwLjcsNS4xYy0yNS44LDE0LjktMzEuNiw2MS4yLTE4LjMsMTE5LjMKCQljLTU3LjEsMTcuNi05NC4yLDQ1LjgtOTQuMiw3NS41YzAsMjkuOCwzNy4zLDU4LjEsOTQuNiw3NS42Yy0xMy4yLDU4LjMtNy4zLDEwNC43LDE4LjUsMTE5LjZjNiwzLjUsMTIuOSw1LjEsMjAuNiw1LjEKCQljMjUuMiwwLDU4LjItMTgsOTEuNi00OS4yYzMzLjQsMzEsNjYuNCw0OC44LDkxLjYsNDguOGM3LjcsMCwxNC43LTEuNywyMC43LTUuMWMyNS44LTE0LjksMzEuNi02MS4yLDE4LjMtMTE5LjMKCQlDNDMzLjQsMzAzLjUsNDcwLjUsMjc1LjMsNDcwLjUsMjQ1LjV6IE0zNTEuMSwxODQuNGMtMy40LDExLjgtNy42LDI0LTEyLjQsMzYuMmMtMy44LTcuMy03LjctMTQuNy0xMi0yMgoJCWMtNC4yLTcuMy04LjctMTQuNS0xMy4yLTIxLjVDMzI2LjUsMTc5LDMzOS4xLDE4MS40LDM1MS4xLDE4NC40eiBNMzA5LjEsMjgyLjFjLTcuMiwxMi40LTE0LjUsMjQuMS0yMi4xLDM1CgkJYy0xMy43LDEuMi0yNy41LDEuOC00MS41LDEuOGMtMTMuOSwwLTI3LjctMC42LTQxLjMtMS43Yy03LjYtMTAuOS0xNS0yMi42LTIyLjItMzQuOWMtNy0xMi0xMy4zLTI0LjItMTkuMS0zNi41CgkJYzUuNy0xMi4zLDEyLjEtMjQuNiwxOS0zNi42YzcuMi0xMi40LDE0LjUtMjQuMSwyMi4xLTM1YzEzLjctMS4yLDI3LjUtMS44LDQxLjUtMS44YzEzLjksMCwyNy43LDAuNiw0MS4zLDEuNwoJCWM3LjYsMTAuOSwxNSwyMi42LDIyLjIsMzQuOWM3LDEyLDEzLjMsMjQuMiwxOS4xLDM2LjVDMzIyLjMsMjU3LjcsMzE1LjksMjcwLDMwOS4xLDI4Mi4xeiBNMzM4LjcsMjcwLjFjNSwxMi4zLDkuMiwyNC42LDEyLjcsMzYuNQoJCWMtMTIsMi45LTI0LjcsNS40LTM3LjgsNy4zYzQuNS03LjEsOS0xNC4zLDEzLjItMjEuN0MzMzEsMjg0LjksMzM0LjksMjc3LjUsMzM4LjcsMjcwLjF6IE0yNDUuNywzNjhjLTguNS04LjgtMTcuMS0xOC42LTI1LjUtMjkuNAoJCWM4LjMsMC40LDE2LjcsMC42LDI1LjIsMC42YzguNiwwLDE3LjItMC4yLDI1LjUtMC42QzI2Mi43LDM0OS40LDI1NC4xLDM1OS4yLDI0NS43LDM2OHogTTE3Ny40LDMxNGMtMTMtMS45LTI1LjYtNC4zLTM3LjYtNy4yCgkJYzMuNC0xMS44LDcuNi0yNCwxMi40LTM2LjJjMy44LDcuMyw3LjcsMTQuNywxMiwyMkMxNjguNSwyOTkuOCwxNzIuOSwzMDcsMTc3LjQsMzE0eiBNMjQ1LjIsMTIzLjFjOC41LDguOCwxNy4xLDE4LjYsMjUuNSwyOS40CgkJYy04LjMtMC40LTE2LjctMC42LTI1LjItMC42Yy04LjYsMC0xNy4yLDAuMi0yNS41LDAuNkMyMjguMywxNDEuNywyMzYuOCwxMzEuOSwyNDUuMiwxMjMuMXogTTE3Ny4zLDE3Ny4xCgkJYy00LjUsNy4xLTksMTQuMy0xMy4yLDIxLjdjLTQuMiw3LjMtOC4yLDE0LjctMTEuOSwyMmMtNS0xMi4zLTkuMi0yNC42LTEyLjctMzYuNUMxNTEuNiwxODEuNSwxNjQuMiwxNzksMTc3LjMsMTc3LjF6IE05NC4zLDI5MgoJCWMtMzIuNS0xMy45LTUzLjUtMzItNTMuNS00Ni40YzAtMTQuNCwyMS0zMi43LDUzLjUtNDYuNGM3LjktMy40LDE2LjUtNi40LDI1LjQtOS4zYzUuMiwxOCwxMi4xLDM2LjcsMjAuNiw1NS45CgkJYy04LjQsMTkuMS0xNS4yLDM3LjctMjAuNCw1NS42QzExMC45LDI5OC41LDEwMi4zLDI5NS40LDk0LjMsMjkyeiBNMTQzLjcsNDIzYy0xMi41LTcuMi0xNy45LTM0LjQtMTMuNy02OS40CgkJYzEtOC42LDIuNy0xNy43LDQuNy0yN2MxOCw0LjQsMzcuNiw3LjgsNTguMiwxMGMxMi40LDE3LDI1LjIsMzIuNCwzOC4yLDQ1LjljLTI5LjksMjcuOC01OCw0My03Nyw0MwoJCUMxNDkuOSw0MjUuNCwxNDYuNCw0MjQuNiwxNDMuNyw0MjN6IE0zNjEuMywzNTMuMWM0LjMsMzUtMSw2Mi4zLTEzLjQsNjkuNWMtMi44LDEuNy02LjMsMi40LTEwLjUsMi40Yy0xOSwwLTQ3LjEtMTUuMS03Ny00Mi43CgkJYzEyLjgtMTMuNSwyNS43LTI4LjgsMzcuOS00NS44YzIwLjctMi4yLDQwLjQtNS42LDU4LjMtMTAuMUMzNTguNiwzMzUuNywzNjAuMiwzNDQuNiwzNjEuMywzNTMuMXogTTM5Ni42LDI5MgoJCWMtNy45LDMuNC0xNi41LDYuNC0yNS40LDkuM2MtNS4yLTE4LTEyLjEtMzYuNy0yMC42LTU1LjljOC40LTE5LjEsMTUuMi0zNy43LDIwLjQtNTUuNmM5LjEsMi44LDE3LjcsNiwyNS44LDkuNAoJCWMzMi41LDEzLjksNTMuNSwzMiw1My41LDQ2LjRDNDUwLDI1OS45LDQyOSwyNzguMiwzOTYuNiwyOTJ6Ii8+Cgk8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMTUzLjYsNDUuNUwxNTMuNiw0NS41TDE1My42LDQ1LjV6Ii8+Cgk8Y2lyY2xlIGNsYXNzPSJzdDIiIGN4PSIyNDUuNCIgY3k9IjI0NS41IiByPSI0MS45Ii8+Cgk8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMzM2LjgsNDUuMkwzMzYuOCw0NS4yTDMzNi44LDQ1LjJ6Ii8+CjwvZz4KPC9zdmc+Cg=='
-                                img.style.width = "20px";
-                                img.style.marginRight = "4px";
-                                button.appendChild(img);
-
-                                //console.log("Adding Button text");
-                                // Add Image Text
-                                var spanText = document.createElement("span");
-                                spanText.textContent = "{tier}";
-                                button.appendChild(spanText);
-
-                                // add the button to the div
-                                //console.log("Adding Button to capsule");
-                                capsule.appendChild(button);
-                                buttonInjected = true;
-                            }}
-                            else {{
-                                //console.log("Button Already Existed");
-                            }}
-                        }}
-
-                        return buttonInjected;
-                    }})()
-                    """
-
-                value = await inject_to_tab("SP", js, False)
-                log(f"value: {value}")
-                if value:
-                    res = value["result"]["result"]["value"]
-                    log(f"Result: {res}")
-                    rv = res
-                else:
-                    log("Result: FALSE")
-            else:
-                js = ""
+            addThemeThemeAtPath(themeBaseFolder)
         else:
-            log("Error Retrieving PDB info.")
-
-            
-        return rv
-
-
+            log("No Theme Directory")
 
     # Asyncio-compatible long-running code, executed in a task when the plugin is loaded
     async def _main(self):
-        global medalsEnabled
-        badgeInjected = False
-
-        getAppIDJS =  f"""
-            (function() {{
-                appID = "0";
-                //console.log('Examining URL: ' + window.location.href);
-                appIdRegex = new RegExp('(?<=https:\/\/steamloopback\.host\/routes\/library\/app\/)([0-9]+)');
-                matches =  window.location.href.match(appIdRegex);
-                if(matches){{
-                    appID = matches[0];
-                    //console.log('Regex ID Matched: ' + appID);      
-                }}
-                else{{
-                    //console.log('no Matches found');
-                }}
-                return appID;
-            }})()
-            """
-
-
-        try:
-            while True:
-                global Initialized
-                if Initialized:
-                    if medalsEnabled:
-                        try:
-                            res = False
-                            log("Injecting App Id JS")
-                            value = await inject_to_tab("SP", getAppIDJS, False)
-                            log(f"value: {value}")
-                            if value:
-                                appID = value["result"]["result"]["value"]
-                                if int(appID) > 0 and int(appID) < int('0x02000000', 16): # handle non steam IDs
-                                    if not badgeInjected:
-                                        addButton = await self.gameNeedsButton(self)
-                                        if addButton:
-                                            log(f"Generating Button for game ({appID})")
-                                            rv = await self.generateAddMedalJS(self, appID)
-
-                                            if rv:
-                                                log("Button Was Added. Setting Needs Generate Button to False")
-                                                badgeInjected = True
-                                            else:
-                                                log("Error Adding Button.")
-                                        else:
-                                            log("Button Was not Needed.")
-                                            badgeInjected = True
-                                else:
-                                    log("No AppID or not Game Screen or is a Non-Steam Game")
-                                    badgeInjected = False
-                            else:
-                                log("Couldnt find an App ID. Setting Generate Button to True")
-                                badgeInjected = False
-                        except Exception as e:
-                            log("Failed: " + str(e))
-                    else:
-                        log("Medals Disabled")
-                else:
-                    try:
-                        os.remove("/tmp/log.txt")
-                    except:
-                        pass
-                    Initialized = True
-
-                    loadConfig()
-                    log("Initialized Main")
-                log("Sleeping 2")
-                await asyncio.sleep(2)
-        except Exception as e:
-            log("Fatal Error Exiting" + str(e))
+        global Initialized
+        if not Initialized:
+            Initialized = True
+            log("Initializing")
+            if not os.path.exists(imagesFolder):
+                log("Initialized Directory")
+                os.mkdir(imagesFolder)
+        else:
+            return
