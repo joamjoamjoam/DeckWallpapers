@@ -1,10 +1,10 @@
 {
-  "name": "Theme Extensions",
+  "name": "Wallpapers",
   "author": "Trent Callan",
   "flags": ["debug"],
   "publish": {
     "tags": ["Themes"],
-    "description": "Extends CSS Loader Themes to support extra fetures.",
+    "description": "Set Wallpapers from local files.",
     "image": "https://raw.githubusercontent.com/joamjoamjoam/ProtonDBGameBadge/main/images/crosscode.jpg"
   }
 }

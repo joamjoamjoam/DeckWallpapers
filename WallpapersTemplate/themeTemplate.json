@@ -4,7 +4,7 @@
     "author": "joamjoamjoam",
     "target": "System-Wide",
     "description": "Sets Wallpapers. What did you Expect?",
-    "manifest_version": 2,
+    "manifest_version": 3,
     "inject": {
         "wallpaperCSS/homeScreen.css" : [ "SP" ],
         "wallpaperCSS/keyboard.css" : [ "SP" ],

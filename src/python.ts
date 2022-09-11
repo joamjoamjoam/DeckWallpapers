@@ -34,3 +34,13 @@ export function setServer(s: ServerAPI) {
 export function parseExtensionsForThemes(): Promise<any> {
     return server!.callPluginMethod("parseExtensionsForThemes", {});
 }
+
+export function hasCSSLoader(): Promise<any> {
+    console.log(server)
+    return server!.callPluginMethod("isCSSLoaderInstalled", {});
+}
+
+export function broken(): Promise<any> {
+    console.log(server)
+    return server!.callPluginMethod("broken", {});
+}

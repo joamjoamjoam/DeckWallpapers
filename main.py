@@ -7,6 +7,7 @@ themeName = "Wallpapers2"
 themeFolder = "/home/deck/homebrew/themes"
 symLinkToHostDir = "/home/deck/.local/share/Steam/steamui/themes_custom"
 themeBaseFolder = f"/home/deck/homebrew/themes/{themeName}"
+imagesFolder = "/home/deck/wallpaperImages"
 cssDir = "generatedCSSFiles"
 b64Dir = "sharedB64Images"
 fallbackCSSDir = "fallbackCSS"
@@ -24,10 +25,12 @@ cssFileTypes = {
 imageCount = 0
 
 def log(text : str):
-    #pass
-    f = open(f"/home/deck/homebrew/plugins/CSSThemeExtensions/log.txt", "a")
-    f.write(text + "\n")
-    f.close()
+    try:
+        f = open(f"/home/deck/homebrew/plugins/Wallpapers/log.txt", "a")
+        f.write(text + "\n")
+        f.close()
+    except:
+        pass
 
 #### Helper Functions
 
@@ -125,18 +128,9 @@ def copyThemeTemplate(srcDir, destDir):
 
 
         if file in ["images"]:
-            if os.path.isdir(trueSrcFilePath):
-                if not os.path.exists(trueDestFilePath):
-                    shutil.copytree(trueSrcFilePath, trueDestFilePath)
-                elif os.path.exists(trueDestFilePath) and not os.path.isdir(trueSrcFilePath):
-                    os.remove(trueDestFilePath)
-                    shutil.copytree(trueSrcFilePath, trueDestFilePath)
-            else:
-                if not os.path.exists(trueDestFilePath):
-                    shutil.copy2(trueSrcFilePath, trueDestFilePath)
-                elif os.path.isdir(trueDestFilePath):
-                    shutil.rmtree(trueDestFilePath)
-                    shutil.copy2(trueSrcFilePath, trueDestFilePath)
+            # Symbolicly Link images to imageFolder
+            if not os.path.exists(f"{destDir}/images"):
+                os.system(f"ln -s {imagesFolder} {destDir}/images")
         else:
             if os.path.isdir(trueSrcFilePath):
                 if os.path.isdir(trueDestFilePath):
@@ -148,7 +142,7 @@ def copyThemeTemplate(srcDir, destDir):
 
 
 def addThemeThemeAtPath(path):
-    if os.path.isdir(path):
+    if os.path.isdir(path) and os.path.isdir(imagesFolder):
         os.chdir(path)
         global imageCount
          # Copy Template to Folder
@@ -252,30 +246,35 @@ def getExtendedThemesList():
 
 class Plugin:
 
-    async def parseExtensionsForThemes(self):
-        
 
+    async def isCSSLoaderInstalled(self):
+        return os.path.exists("/home/deck/homebrew/themes")
+
+    async def parseExtensionsForThemes(self):
         # Handle Updates by backing up images and wiping template (get version from json)
+        log("Parsing theme")
+        if not os.path.exists(imagesFolder):
+            log("Initialized images Folder")
+            os.mkdir(imagesFolder)
+
         if os.path.isdir(themeFolder):
             if not os.path.isdir(themeBaseFolder):
                 os.mkdir(themeBaseFolder)
-        
-        
+            
             log("Theme Directory")
             
             addThemeThemeAtPath(themeBaseFolder)
         else:
             log("No Theme Directory")
 
-        
-
-
-
-        
-
     # Asyncio-compatible long-running code, executed in a task when the plugin is loaded
     async def _main(self):
+        global Initialized
         if not Initialized:
             Initialized = True
+            log("Initializing")
+            if not os.path.exists(imagesFolder):
+                log("Initialized Directory")
+                os.mkdir(imagesFolder)
         else:
             return
