@@ -61,9 +61,9 @@ const Content: VFC<{ serverAPI: ServerAPI; }> = ({}) => {
           label={"How to Use"}
           description={
             <div><ol>
-              <li>Install CSS Loader if it's not Already Installed.</li>
+              <li>Install CSS Loader v1.2 or above if it's not Already Installed.</li>
               <li>Load Images into /home/deck/wallpaperImages.</li>
-              <li>Click the Add/Update Images button</li>
+              <li>Click the Add/Update Images button.</li>
               <li>Reload Themes in CSS Loader</li>
               <li>Enable The "Wallpapers" theme and select your backgrounds.</li>
             </ol></div>

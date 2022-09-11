@@ -1,14 +1,17 @@
-# ProtonDB Medals Decky Loader Plug-in
+# Custom Wallpapers Plugin
 
-Adds ProtonDB medals to each game screen in the Steam Deck UI. The medal shows the Proton DB rating and liks to the ProtonDB page for the game.
+Creates a CSS Loader theme that sets local images as Custom Wallpapers.
 
-ProtonDB logo image courtesy of [protondb.com](https://www.protondb.com)
+Sets Wallpapers for:
+- Main Screen
+- Lock Screen
+- Keyboard
+- Library
 
-Note: This is a plugin for the Decky Loader. You must have it installed to use this plug-in.
+## How To Use
 
-[Install Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader)
-
-# Examples
-
-![](https://github.com/joamjoamjoam/ProtonDBGameBadge/blob/main/images/crosscode.jpg?raw=true)
-![](https://github.com/joamjoamjoam/ProtonDBGameBadge/blob/main/images/knight.jpg?raw=true)
+1. Install (CSS Loader)[https://github.com/suchmememanyskill/SDH-CssLoader] if it's not Already Installed.
+2. Load Images into /home/deck/wallpaperImages.
+3. Click the Add/Update Images button
+4. Reload Themes in CSS Loader.
+5. Enable The "Wallpapers" theme and select your backgrounds.
