@@ -10,6 +10,8 @@ Sets Wallpapers for:
 - Keyboard
 - Library
 
+![Wallpapers.jpg](/images/Wallpapers.jpg)
+
 ## How To Use
 
 1. Install [CSS Loader](https://github.com/suchmememanyskill/SDH-CssLoader) if it's not already Installed.
